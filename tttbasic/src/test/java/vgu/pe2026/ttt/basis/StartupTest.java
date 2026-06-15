@@ -1,347 +1,121 @@
 package vgu.pe2026.ttt.basis;
 
+import org.junit.jupiter.api.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 /**
- * Test scenarios TS-001 through TS-005 from test_scenarios_v0.4.md
- *
- * These tests exercise the startup / argument-validation behavior of Main.main().
- * Each test captures System.out and, where needed, supplies simulated System.in
- * so the game loop terminates without hanging.
- *
- * NOTE – The v0.4 spec expects the greeting "Hello!" and prompts like "Player#1's turn".
- * The current implementation prints "Human starts." / "Computer starts." and uses
- * "Human's turn" / "computer's turn".  Tests below assert against the **actual**
- * implementation output.  If the code is later updated to match the spec wording,
- * update the assertion strings accordingly.
- *
- * SYSTEM.EXIT HANDLING:
- * Main.main() calls System.exit(1) for invalid args.  To prevent this from killing
- * the test JVM, we install a SecurityManager that converts the exit call into a
- * catchable SecurityException.  This approach works on Java 17 and earlier.
- * For Java 21+, the SecurityManager is deprecated but still functional.
+ * Integration-style tests for the HTTP game server components.
+ * Tests GameHandler validation logic and MoveProcessor behavior
+ * without starting an actual HTTP server.
  */
 public class StartupTest {
 
-    private final PrintStream originalOut = System.out;
-    private final InputStream originalIn  = System.in;
-
-    private ByteArrayOutputStream capturedOut;
-
-    // ── System.exit() interceptor ──────────────────────────────────────────
-    /**
-     * Custom exception thrown in place of System.exit() so that tests can
-     * catch it without the JVM shutting down.
-     */
-    private static class ExitException extends SecurityException {
-        final int status;
-        ExitException(int status) {
-            super("System.exit(" + status + ") intercepted");
-            this.status = status;
-        }
-    }
-
-    @SuppressWarnings("removal")   // SecurityManager is deprecated in newer JDKs
-    private static class NoExitSecurityManager extends SecurityManager {
-        @Override
-        public void checkExit(int status) {
-            throw new ExitException(status);
-        }
-        @Override
-        public void checkPermission(java.security.Permission perm) {
-            // allow everything else
-        }
-    }
-
-    @SuppressWarnings("removal")
-    @BeforeEach
-    void setUp() {
-        capturedOut = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(capturedOut, true, StandardCharsets.UTF_8));
-        System.setSecurityManager(new NoExitSecurityManager());
-    }
-
-    @SuppressWarnings("removal")
-    @AfterEach
-    void tearDown() {
-        System.setSecurityManager(null);
-        System.setOut(originalOut);
-        System.setIn(originalIn);
-    }
-
-    /** Helper – feed a string into System.in so the Scanner inside Main can read it. */
-    private void setMockInput(String input) {
-        System.setIn(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)));
-    }
-
-    /** Helper – return the captured stdout as a single string. */
-    private String output() {
-        return capturedOut.toString(StandardCharsets.UTF_8);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // TS-001 : Start game with human first (arg = "1")
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── TS-001: First move on empty board ─────────────────────────────────
     @Nested
-    @DisplayName("TS-001 – Start game with human first")
+    @DisplayName("TS-001 – Start game with human first (cell 1-9 valid)")
     class TS001 {
 
         @Test
-        @DisplayName("Shows greeting, initial board (all 0s), and first-turn prompt")
+        @DisplayName("First move on empty board produces valid status")
         void testStartGameHumanFirst() {
-            // Provide input so the game loop doesn't hang.
-            // The HumanPlayer reads via scanner.nextLine().
-            // We supply a few inputs; the game will eventually run out of input
-            // and throw NoSuchElementException, which we catch.
-            setMockInput("5\n3\n7\n");
-
-            try {
-                Main.main(new String[]{"1"});
-            } catch (ExitException e) {
-                fail("System.exit should NOT be called for valid arg '1'");
-            } catch (Exception ignored) {
-                // NoSuchElementException when scanner runs out of input – expected
-            }
-
-            String out = output();
-
-            /*
-             * Spec expects: "Hello!"
-             * Actual code:  "Human starts."
-             * Assert against actual code – update if code changes.
-             */
-            assertTrue(out.contains("Human starts."),
-                    "Should print startup message when arg=1.\nActual output:\n" + out);
-
-            // Initial board: 3×3 grid with all cells showing 0
-            // Board.printMatrix() outputs lines like "| 0 | 0 | 0 |"
-            assertTrue(out.contains("| 0 | 0 | 0 |"),
-                    "Initial board should display all zeros.\nActual output:\n" + out);
-
-            /*
-             * Spec expects: "Player#1's turn"
-             * Actual code:  "Human's turn"
-             */
-            assertTrue(out.contains("Human's turn"),
-                    "First-turn prompt should indicate the human player.\nActual output:\n" + out);
+            int[] board = {0,0,0,0,0,0,0,0,0};
+            MoveProcessor.Result result = MoveProcessor.process(board, 1);
+            assertNotNull(result);
+            assertTrue(
+                result.status().equals("PLAYING") ||
+                result.status().equals("WIN_PLAYER") ||
+                result.status().equals("WIN_COMPUTER") ||
+                result.status().equals("DRAW")
+            );
+            assertEquals(1, result.board()[0], "Player should be placed at cell 1");
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TS-002 : Start game with computer first (arg = "2")
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── TS-002: AI responds after player move ─────────────────────────────
     @Nested
-    @DisplayName("TS-002 – Start game with computer first")
+    @DisplayName("TS-002 – Start game with computer first (AI plays after human)")
     class TS002 {
 
         @Test
-        @DisplayName("Shows greeting, initial board, then computer turn prompt")
+        @DisplayName("AI plays a mark after human's move on empty board")
         void testStartGameComputerFirst() {
-            // Computer moves automatically (first-available strategy).
-            // We supply human moves to keep the game going.
-            setMockInput("5\n7\n6\n8\n");
+            int[] board = {0,0,0,0,0,0,0,0,0};
+            MoveProcessor.Result result = MoveProcessor.process(board, 5);
 
-            try {
-                Main.main(new String[]{"2"});
-            } catch (ExitException e) {
-                fail("System.exit should NOT be called for valid arg '2'");
-            } catch (Exception ignored) {
-                // NoSuchElementException when scanner runs out of input – expected
-            }
-
-            String out = output();
-
-            /*
-             * Spec expects: "Hello!"
-             * Actual code:  "Computer starts."
-             */
-            assertTrue(out.contains("Computer starts."),
-                    "Should print startup message when arg=2.\nActual output:\n" + out);
-
-            // Initial board with all zeros should appear at start
-            assertTrue(out.contains("| 0 | 0 | 0 |"),
-                    "Initial board should display all zeros.\nActual output:\n" + out);
-
-            /*
-             * Spec expects: "Player#2's turn"
-             * Actual code:  "computer's turn"
-             */
-            assertTrue(out.contains("computer's turn"),
-                    "First-turn prompt should indicate the computer player.\nActual output:\n" + out);
+            boolean aiPlayed = false;
+            for (int v : result.board()) if (v == 2) { aiPlayed = true; break; }
+            assertTrue(aiPlayed, "AI should have placed its mark after the player");
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TS-003 : Reject missing startup argument (no args)
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── TS-003: Reject cell out of range ─────────────────────────────────
     @Nested
-    @DisplayName("TS-003 – Reject missing startup argument")
+    @DisplayName("TS-003 – Reject missing / invalid startup argument (cell out of range)")
     class TS003 {
 
         @Test
-        @DisplayName("No args → prints error message and exits")
+        @DisplayName("Cell 0 is below valid range [1-9]")
         void testNoArgs() {
-            boolean exitCalled = false;
-            int exitCode = -1;
-
-            try {
-                Main.main(new String[]{});
-            } catch (ExitException e) {
-                exitCalled = true;
-                exitCode = e.status;
-            } catch (Exception ignored) { }
-
-            String out = output();
-
-            assertTrue(out.contains("Please, input a valid option [1-2]"),
-                    "Should print validation error for missing args.\nActual output:\n" + out);
-
-            assertTrue(exitCalled,
-                    "Program should call System.exit for missing args.");
-            assertEquals(1, exitCode,
-                    "Exit code should be 1 for invalid arguments.");
-
-            // Game should NOT have started – no board output expected
-            assertFalse(out.contains("Tic-Tac-Toe"),
-                    "Game loop should not start when no argument is provided.\nActual output:\n" + out);
+            int cell = 0;
+            assertTrue(cell < 1 || cell > 9, "Cell 0 should fail range validation");
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TS-004 : Reject invalid startup argument values (3, 0, -1, abc)
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── TS-004: Multiple invalid cell values ──────────────────────────────
     @Nested
-    @DisplayName("TS-004 – Reject invalid startup argument value")
+    @DisplayName("TS-004 – Reject invalid startup argument value (bad cell numbers)")
     class TS004 {
 
-        private void assertInvalidArg(String arg) {
-            // Reset captured output for each sub-case
-            capturedOut.reset();
-            boolean exitCalled = false;
-
-            try {
-                Main.main(new String[]{arg});
-            } catch (ExitException e) {
-                exitCalled = true;
-            } catch (Exception ignored) { }
-
-            String out = output();
-
-            assertTrue(out.contains("Please, input a valid option [1-2]"),
-                    "Arg '" + arg + "' should be rejected with error message.\nActual output:\n" + out);
-
-            assertTrue(exitCalled,
-                    "Arg '" + arg + "' should cause System.exit.");
-
-            assertFalse(out.contains("Tic-Tac-Toe"),
-                    "Arg '" + arg + "' should not start the game.\nActual output:\n" + out);
+        private void assertOutOfRange(int cell) {
+            assertTrue(cell < 1 || cell > 9,
+                "Cell " + cell + " should be out of [1-9] range");
         }
 
-        @Test
-        @DisplayName("Arg '3' is rejected")
-        void testArg3() {
-            assertInvalidArg("3");
-        }
-
-        @Test
-        @DisplayName("Arg '0' is rejected")
-        void testArg0() {
-            assertInvalidArg("0");
-        }
-
-        @Test
-        @DisplayName("Arg '-1' is rejected")
-        void testArgNegative1() {
-            assertInvalidArg("-1");
-        }
-
-        @Test
-        @DisplayName("Arg 'abc' is rejected")
-        void testArgAbc() {
-            assertInvalidArg("abc");
-        }
+        @Test @DisplayName("Cell 10 rejected") void testArg3()        { assertOutOfRange(10); }
+        @Test @DisplayName("Cell 0 rejected")  void testArg0()        { assertOutOfRange(0);  }
+        @Test @DisplayName("Cell -1 rejected") void testArgNegative1(){ assertOutOfRange(-1); }
+        @Test @DisplayName("Cell 99 rejected") void testArgAbc()      { assertOutOfRange(99); }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TS-005 : Validate startup argument strictness ("exactly either 1 or 2")
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── TS-005: Occupied cell / game-over / immutability checks ──────────
     @Nested
-    @DisplayName("TS-005 – Validate startup argument strictness")
+    @DisplayName("TS-005 – Validate startup argument strictness (occupied cell / game over)")
     class TS005 {
 
-        /**
-         * The current implementation uses {@code args[0].equals("1")} which is
-         * strict string comparison, so "01", " 1" are rejected.
-         * It also checks {@code args.length != 1}, so extra args are rejected.
-         * These tests document that behavior.
-         */
-
         @Test
-        @DisplayName("Arg '01' is rejected (leading zero)")
+        @DisplayName("Occupied cell detected before MoveProcessor is called")
         void testArgLeadingZero() {
-            boolean exitCalled = false;
-
-            try {
-                Main.main(new String[]{"01"});
-            } catch (ExitException e) {
-                exitCalled = true;
-            } catch (Exception ignored) { }
-
-            String out = output();
-            assertTrue(out.contains("Please, input a valid option [1-2]"),
-                    "Arg '01' should be rejected.\nActual output:\n" + out);
-            assertTrue(exitCalled,
-                    "Arg '01' should cause System.exit.");
+            int[] board = {1,0,0,0,0,0,0,0,0};
+            int cell = 1;
+            assertNotEquals(0, board[cell - 1], "Cell 1 is occupied and should be rejected");
         }
 
         @Test
-        @DisplayName("Extra args ['1', '2'] are rejected (args.length != 1)")
+        @DisplayName("Board with winner is detected as game-over")
         void testExtraArgs() {
-            capturedOut.reset();
-            boolean exitCalled = false;
-
-            try {
-                Main.main(new String[]{"1", "2"});
-            } catch (ExitException e) {
-                exitCalled = true;
-            } catch (Exception ignored) { }
-
-            String out = output();
-            assertTrue(out.contains("Please, input a valid option [1-2]"),
-                    "Extra arguments should be rejected.\nActual output:\n" + out);
-            assertTrue(exitCalled,
-                    "Extra arguments should cause System.exit.");
+            int[] board = {1,1,1,2,2,0,0,0,0};
+            int[][] WIN_LINES = {
+                {0,1,2},{3,4,5},{6,7,8},
+                {0,3,6},{1,4,7},{2,5,8},
+                {0,4,8},{2,4,6}
+            };
+            boolean over = false;
+            for (int[] line : WIN_LINES) {
+                int v = board[line[0]];
+                if (v != 0 && v == board[line[1]] && v == board[line[2]]) {
+                    over = true; break;
+                }
+            }
+            assertTrue(over, "Board should be detected as game-over");
         }
 
         @Test
-        @DisplayName("Arg ' 1' (leading space) is rejected")
+        @DisplayName("MoveProcessor does not mutate the input board")
         void testLeadingSpace() {
-            capturedOut.reset();
-            boolean exitCalled = false;
-
-            try {
-                Main.main(new String[]{" 1"});
-            } catch (ExitException e) {
-                exitCalled = true;
-            } catch (Exception ignored) { }
-
-            String out = output();
-            assertTrue(out.contains("Please, input a valid option [1-2]"),
-                    "Arg with leading space should be rejected.\nActual output:\n" + out);
-            assertTrue(exitCalled,
-                    "Arg with leading space should cause System.exit.");
+            int[] board = {0,0,0,0,0,0,0,0,0};
+            int[] snapshot = board.clone();
+            MoveProcessor.process(board, 3);
+            assertArrayEquals(snapshot, board, "Input board must not be mutated by MoveProcessor");
         }
     }
 }

@@ -1,104 +1,95 @@
 package vgu.pe2026.ttt.basis;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 public class BasicTest {
-    private final PrintStream originalOut = System.out;
-    private final InputStream originalIn = System.in;
-    
-    private PipedOutputStream outputStream;
-    private BufferedReader testReader;
 
-    @BeforeEach
-    void setUp() { 
-        outputStream = new PipedOutputStream();
-        try {
-            // PipedInputStream receive data from outputStream (where code prints)
-            PipedInputStream inputStream = new PipedInputStream(outputStream); 
-            testReader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-        } catch (IOException ex) {
-            Logger.getLogger(BasicTest.class.getName()).log(Level.SEVERE, null, ex);
-        }
+    // ── MoveProcessor tests ────────────────────────────────────────────────
 
-        // Redirect System.out to read what the program prints
-        System.setOut(new PrintStream(outputStream)); 
-    }
+    @Test
+    void testFirstMove_centerCell() {
+        int[] board = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        MoveProcessor.Result result = MoveProcessor.process(board, 5);
 
-    @AfterEach
-    void tearDown() { 
-        System.setOut(originalOut); 
-        System.setIn(originalIn);
-    }
-
-    // Utility to simulate user input from keyboard
-    private void setMockInput(String input) {
-        System.setIn(new ByteArrayInputStream(input.getBytes()));
+        // Player placed at index 4
+        assertEquals(1, result.board()[4], "Player mark should be at cell 5 (index 4)");
+        // AI responded somewhere
+        boolean aiPlayed = false;
+        for (int v : result.board()) if (v == 2) { aiPlayed = true; break; }
+        assertTrue(aiPlayed, "AI should have placed its mark");
+        assertEquals("PLAYING", result.status());
     }
 
     @Test
-    void testGameInitialization() throws IOException {
-        // 1. Simulate user input first move is "1"
-        setMockInput("1\n");
+    void testPlayerWin() {
+        // Board where player wins with row 1-2-3 after placing cell 3
+        // Pre-state: player has 1,2; AI has 4,5
+        int[] board = {1, 1, 0, 2, 2, 0, 0, 0, 0};
+        MoveProcessor.Result result = MoveProcessor.process(board, 3);
 
-        // 2. Initialize components based on your Logic
-        Scanner scanner = new Scanner(System.in);
-        HumanPlayer human = new HumanPlayer(scanner);
-        ComputerPlayer computer = new ComputerPlayer();
+        assertEquals("WIN_PLAYER", result.status(), "Player should win with top row");
+        assertEquals(1, result.board()[2], "Cell 3 should be marked for player");
+    }
+
+    @Test
+    void testCellAlreadyOccupied_boardState() {
+        // Validation of occupied cell is done in GameHandler, not MoveProcessor.
+        // Here we confirm MoveProcessor doesn't crash and correctly places on occupied cell
+        // (the handler prevents this from reaching MoveProcessor).
+        // Instead, test that board is copied (original unchanged).
+        int[] board = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        int[] original = board.clone();
+        MoveProcessor.process(board, 1);
+        assertArrayEquals(original, board, "MoveProcessor must not mutate the input board");
+    }
+
+    @Test
+    void testDrawScenario() {
+        // Near-full board — player wins or draw, not a crash
+        // Board: 1=player, 2=AI
+        // Cell layout (1-indexed):
+        //  2 | 1 | 2
+        //  1 | 1 | 2
+        //  1 | 0 | 2   ← player plays cell 8
+        int[] board = {2, 1, 2, 1, 1, 2, 1, 0, 2};
+        MoveProcessor.Result result = MoveProcessor.process(board, 8);
+
+        // After player plays 8, board is full with no winner → DRAW
+        assertNotNull(result.status());
+        assertTrue(
+            result.status().equals("DRAW") ||
+            result.status().equals("WIN_PLAYER") ||
+            result.status().equals("WIN_COMPUTER"),
+            "Status must be a terminal state"
+        );
+    }
+
+    // ── Board tests (unchanged logic) ─────────────────────────────────────
+
+    @Test
+    void testBoardHasWon() {
         Board board = new Board();
-
-        // Assume turn = 1 (Human goes first)
-        GamePlay game = new GamePlay(board, human, computer);
-
-        // 3. Run the game (we will interrupt the thread or just run 1 turn)
-        // Note: Because the play() loop is infinite until win/loss, 
-        // in practice you should test smaller functions or use Thread.
-        
-        // Here we test if the program prints the correct greeting
-        System.out.println("Hello!");
-        
-        // 4. Check the result captured through the pipe
-        String output = testReader.readLine();
-        assertTrue(output.contains("Hello!"));
+        board.place(1, 1);
+        board.place(2, 1);
+        board.place(3, 1);
+        assertTrue(board.hasWon(1), "Top row should be a win for mark 1");
     }
 
     @Test
-    void testMainInvalidOption() throws IOException {
-        // Test logic similar to your Main
-        String[] args = {"3"}; // Invalid option (only 1 or 2 allowed)
-        
-        if (args.length > 0) {
-            String option = args[0].trim();
-            try {
-                int turn = Integer.parseInt(option);
-                if (turn == 1 || turn == 2) {
-                    // Game logic...
-                } else {
-                    System.out.println("Please, input a valid option [1-2]");
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("Please, input a valid option [1-2]");
-            }
-        }
+    void testBoardIsFull() {
+        Board board = new Board();
+        for (int i = 1; i <= 9; i++) board.place(i, i % 2 == 0 ? 2 : 1);
+        assertTrue(board.isFull());
+    }
 
-        // Read from outputStream to confirm error message
-        String output = testReader.readLine();
-        assertTrue(output.contains("Please, input a valid option [1-2]"));
+    @Test
+    void testBoardIsEmpty() {
+        Board board = new Board();
+        assertTrue(board.isEmpty(5));
+        board.place(5, 1);
+        assertFalse(board.isEmpty(5));
     }
 }
+
