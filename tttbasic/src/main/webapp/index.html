@@ -2,290 +2,78 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TicTacToe — HTTP Stateless</title>
+  <title>TicTacToe</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
-
-    :root {
-      --bg:        #0f0f1a;
-      --surface:   #1a1a2e;
-      --border:    #2a2a4a;
-      --accent:    #7c3aed;
-      --accent2:   #06b6d4;
-      --player:    #a78bfa;
-      --ai:        #f472b6;
-      --empty:     #374151;
-      --text:      #e5e7eb;
-      --muted:     #6b7280;
-      --win:       #10b981;
-      --lose:      #ef4444;
-      --draw:      #f59e0b;
-      --radius:    14px;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-
-    /* ── Header ── */
-    header {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    header h1 {
-      font-size: 2.2rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      letter-spacing: -0.5px;
-    }
-    header p {
-      color: var(--muted);
-      font-size: 0.85rem;
-      margin-top: 4px;
-    }
-
-    /* ── Card ── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 0 60px rgba(124, 58, 237, 0.12);
-    }
-
-    /* ── Status Bar ── */
-    #status-bar {
-      text-align: center;
-      font-size: 1rem;
-      font-weight: 600;
-      min-height: 28px;
-      margin-bottom: 24px;
-      padding: 8px 16px;
-      border-radius: 8px;
-      background: rgba(124,58,237,0.1);
-      border: 1px solid var(--border);
-      transition: background 0.3s, color 0.3s;
-    }
-    #status-bar.win    { background: rgba(16,185,129,0.15); color: var(--win);  border-color: var(--win); }
-    #status-bar.lose   { background: rgba(239,68,68,0.15);  color: var(--lose); border-color: var(--lose); }
-    #status-bar.draw   { background: rgba(245,158,11,0.15); color: var(--draw); border-color: var(--draw); }
-    #status-bar.playing{ background: rgba(124,58,237,0.1);  color: var(--player); }
-
-    /* ── Grid ── */
-    #board {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 28px;
-    }
-
-    .cell {
-      aspect-ratio: 1;
-      background: rgba(255,255,255,0.03);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.2rem;
-      font-weight: 800;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s, transform 0.1s;
-      position: relative;
-      user-select: none;
-    }
-    .cell:hover:not(.taken) {
-      border-color: var(--accent);
-      background: rgba(124,58,237,0.08);
-      transform: scale(1.04);
-    }
-    .cell.taken   { cursor: default; }
-    .cell.player  { color: var(--player); border-color: rgba(167,139,250,0.4); }
-    .cell.ai      { color: var(--ai);     border-color: rgba(244,114,182,0.4); }
-    .cell.flash   { animation: flash 0.35s ease; }
-
-    @keyframes flash {
-      0%   { transform: scale(1.15); }
-      100% { transform: scale(1); }
-    }
-
-    /* ── Legend ── */
-    .legend {
-      display: flex;
-      justify-content: center;
-      gap: 24px;
-      margin-bottom: 20px;
-      font-size: 0.78rem;
-      color: var(--muted);
-    }
-    .legend span { display: flex; align-items: center; gap: 6px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .dot.p { background: var(--player); }
-    .dot.a { background: var(--ai); }
-
-    /* ── Buttons ── */
-    .btn {
-      width: 100%;
-      padding: 13px;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 0.95rem;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-    }
-    .btn:active { transform: scale(0.98); }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff;
-    }
-    .btn-primary:hover { opacity: 0.88; }
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      margin-top: 10px;
-    }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--text); }
-
-    /* ── Error toast ── */
-    #error-toast {
-      display: none;
-      background: rgba(239,68,68,0.15);
-      border: 1px solid var(--lose);
-      color: var(--lose);
-      border-radius: 8px;
-      padding: 8px 14px;
-      font-size: 0.82rem;
-      text-align: center;
-      margin-bottom: 16px;
-      animation: fadeIn 0.2s ease;
-    }
-    @keyframes fadeIn { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform: none; } }
-
-    /* ── Loader overlay on cell click ── */
-    .cell.loading::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: calc(var(--radius) - 2px);
-      background: rgba(124,58,237,0.15);
-    }
+    body { text-align: center; }
+    #board { margin: 20px auto; }
+    #board td { width: 100px; height: 100px; font-size: 2rem; cursor: pointer; text-align: center; vertical-align: middle; }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>Tic · Tac · Toe</h1>
-  <p>HTTP Stateless · You vs Computer</p>
-</header>
+<h1>Tic-Tac-Toe</h1>
+<p>You = X &nbsp;|&nbsp; Computer = O</p>
 
-<div class="card">
-  <div id="status-bar">Press <strong>New Game</strong> to start</div>
+<p id="status">Press "New Game" to start.</p>
+<p id="error" style="display:none"></p>
 
-  <div id="error-toast"></div>
+<table border="1" cellpadding="10" cellspacing="0" id="board">
+  <tr>
+    <td id="c1" onclick="makeMove(1)"></td>
+    <td id="c2" onclick="makeMove(2)"></td>
+    <td id="c3" onclick="makeMove(3)"></td>
+  </tr>
+  <tr>
+    <td id="c4" onclick="makeMove(4)"></td>
+    <td id="c5" onclick="makeMove(5)"></td>
+    <td id="c6" onclick="makeMove(6)"></td>
+  </tr>
+  <tr>
+    <td id="c7" onclick="makeMove(7)"></td>
+    <td id="c8" onclick="makeMove(8)"></td>
+    <td id="c9" onclick="makeMove(9)"></td>
+  </tr>
+</table>
 
-  <div id="board" aria-label="Tic Tac Toe board">
-    <!-- 9 cells injected by JS -->
-  </div>
-
-  <div class="legend">
-    <span><span class="dot p"></span> You (✕)</span>
-    <span><span class="dot a"></span> Computer (○)</span>
-  </div>
-
-  <button id="btn-new" class="btn btn-primary" onclick="startGame()">New Game</button>
-  <button id="btn-reset" class="btn btn-secondary" onclick="startGame()" style="display:none">↩ Restart</button>
-</div>
+<br>
+<button onclick="startGame()">New Game</button>
 
 <script>
   const API = 'http://localhost:8080/api/move';
 
-  let board = null;   // int[9], null = not started
-  let busy  = false;  // prevent double click while fetching
-
-  // ── DOM helpers ──────────────────────────────────────────
-  const $board  = document.getElementById('board');
-  const $status = document.getElementById('status-bar');
-  const $error  = document.getElementById('error-toast');
-  const $newBtn = document.getElementById('btn-new');
-  const $rstBtn = document.getElementById('btn-reset');
+  let board = null;
+  let gameOver = true;
 
   function renderBoard() {
-    $board.innerHTML = '';
-    for (let i = 0; i < 9; i++) {
-      const div = document.createElement('div');
-      div.className = 'cell' +
-        (board[i] === 1 ? ' player taken' : '') +
-        (board[i] === 2 ? ' ai taken' : '');
-      div.id = 'cell-' + (i + 1);
-      div.setAttribute('aria-label', 'Cell ' + (i + 1));
-
-      if (board[i] === 1) div.textContent = '✕';
-      else if (board[i] === 2) div.textContent = '○';
-      else div.textContent = String(i + 1);
-
-      if (board[i] === 0) {
-        div.onclick = () => makeMove(i + 1);
-      }
-      $board.appendChild(div);
+    for (let i = 1; i <= 9; i++) {
+      const td = document.getElementById('c' + i);
+      const val = board[i - 1];
+      td.textContent = val === 1 ? 'X' : val === 2 ? 'O' : '';
     }
   }
 
-  function setStatus(text, cls) {
-    $status.textContent = text;
-    $status.className = cls || '';
+  function setStatus(msg) {
+    document.getElementById('status').textContent = msg;
   }
 
   function showError(msg) {
-    $error.textContent = msg;
-    $error.style.display = 'block';
-    setTimeout(() => { $error.style.display = 'none'; }, 3000);
+    const el = document.getElementById('error');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
   }
 
-  function flashCell(cell) {
-    const el = document.getElementById('cell-' + cell);
-    if (el) { el.classList.add('flash'); el.addEventListener('animationend', () => el.classList.remove('flash'), { once: true }); }
-  }
-
-  // ── Game logic ──────────────────────────────────────────
   function startGame() {
     board = [0,0,0,0,0,0,0,0,0];
-    busy  = false;
-    $error.style.display = 'none';
-    $newBtn.style.display = 'none';
-    $rstBtn.style.display = 'block';
-    setStatus("Your turn! Click a cell.", 'playing');
+    gameOver = false;
+    document.getElementById('error').style.display = 'none';
     renderBoard();
+    setStatus('Your turn!');
   }
 
   async function makeMove(cell) {
-    if (!board || busy) return;
-
-    // Local pre-check (UX optimisation — server also validates)
-    if (board[cell - 1] !== 0) { showError('That cell is already occupied!'); return; }
-
-    busy = true;
-    // Visual: mark cell loading
-    const el = document.getElementById('cell-' + cell);
-    if (el) el.classList.add('loading');
+    if (gameOver || !board) return;
+    if (board[cell - 1] !== 0) { showError('Cell already occupied!'); return; }
 
     let res;
     try {
@@ -294,62 +82,21 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ board, cell })
       });
-
       res = await response.json();
-
-      if (!response.ok) {
-        showError(res.error || 'Server error');
-        busy = false;
-        if (el) el.classList.remove('loading');
-        return;
-      }
+      if (!response.ok) { showError(res.error || 'Error'); return; }
     } catch (e) {
-      showError('Cannot reach server. Is it running on port 8080?');
-      busy = false;
-      if (el) el.classList.remove('loading');
+      showError('Cannot reach server on port 8080.');
       return;
     }
 
     board = res.board;
     renderBoard();
-    flashCell(cell);   // flash the cell the player just clicked
 
-    // Update status
-    switch (res.status) {
-      case 'WIN_PLAYER':
-        setStatus('🎉 ' + res.message, 'win');
-        endGame();
-        break;
-      case 'WIN_COMPUTER':
-        setStatus('💻 ' + res.message, 'lose');
-        endGame();
-        break;
-      case 'DRAW':
-        setStatus('🤝 ' + res.message, 'draw');
-        endGame();
-        break;
-      default:
-        setStatus("Your turn!", 'playing');
-        break;
-    }
-
-    busy = false;
+    if (res.status === 'WIN_PLAYER')   { setStatus('You win!');        gameOver = true; }
+    else if (res.status === 'WIN_COMPUTER') { setStatus('Computer wins!'); gameOver = true; }
+    else if (res.status === 'DRAW')    { setStatus("It's a draw!");    gameOver = true; }
+    else setStatus('Your turn!');
   }
-
-  function endGame() {
-    // Disable all cells (mark all as taken to block clicks)
-    document.querySelectorAll('.cell').forEach(c => {
-      c.classList.add('taken');
-      c.onclick = null;
-    });
-    $newBtn.style.display = 'block';
-  }
-
-  // Render empty grid on load
-  board = [0,0,0,0,0,0,0,0,0];
-  renderBoard();
-  board = null;  // reset: not actually started
-  document.querySelectorAll('.cell').forEach(c => { c.onclick = null; c.classList.add('taken'); c.textContent = ''; });
 </script>
 
 </body>

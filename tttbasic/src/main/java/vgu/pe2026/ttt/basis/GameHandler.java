@@ -10,48 +10,31 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-/**
- * HTTP handler cho endpoint POST /api/move.
- * Không có HMAC — server tin tưởng board do client gửi lên.
- *
- * Flow:
- *   1. CORS preflight (OPTIONS) → 200
- *   2. Validate method = POST
- *   3. Parse JSON body → board[9], cell
- *   4. Validate cell [1-9]
- *   5. Validate cell chưa bị chiếm
- *   6. Validate game chưa kết thúc
- *   7. Gọi MoveProcessor.process(board, cell)
- *   8. Trả JSON response 200
- */
+// HTTP handler for POST /api/move — stateless, no HMAC
 public class GameHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        // Luôn thêm CORS headers — cần thiết vì client mở từ file://
         addCorsHeaders(exchange);
 
         String method = exchange.getRequestMethod();
 
-        // Xử lý OPTIONS preflight
+        // handle CORS preflight
         if ("OPTIONS".equalsIgnoreCase(method)) {
             exchange.sendResponseHeaders(200, -1);
             return;
         }
 
-        // Chỉ chấp nhận POST
         if (!"POST".equalsIgnoreCase(method)) {
             sendError(exchange, 405, "Method Not Allowed");
             return;
         }
 
-        // Đọc body
         String body;
         try (InputStream is = exchange.getRequestBody()) {
             body = new String(is.readAllBytes(), StandardCharsets.UTF_8).trim();
         }
 
-        // Parse board
         int[] board;
         try {
             board = parseBoard(body);
@@ -60,7 +43,6 @@ public class GameHandler implements HttpHandler {
             return;
         }
 
-        // Parse cell
         int cell;
         try {
             cell = parseCell(body);
@@ -69,42 +51,32 @@ public class GameHandler implements HttpHandler {
             return;
         }
 
-        // --- Validations ---
-
-        // 1. Cell nằm trong [1-9]
+        // validate cell range
         if (cell < 1 || cell > 9) {
             sendError(exchange, 400, "Cell must be between 1 and 9");
             return;
         }
 
-        // 2. Cell chưa bị chiếm
+        // validate cell not occupied
         if (board[cell - 1] != 0) {
             sendError(exchange, 400, "Cell is already occupied");
             return;
         }
 
-        // 3. Game chưa kết thúc (kiểm tra trạng thái board hiện tại)
+        // validate game not already over
         if (isGameOver(board)) {
             sendError(exchange, 400, "Game already over");
             return;
         }
 
-        // --- Xử lý nước đi ---
         MoveProcessor.Result result = MoveProcessor.process(board, cell);
-
-        // --- Trả response ---
         String json = buildResponse(result.board(), result.status(), result.message());
         sendResponse(exchange, 200, json);
     }
 
-    // -------------------------------------------------------
-    // JSON Parsers (tự build, không cần thư viện ngoài)
-    // -------------------------------------------------------
+    // --- JSON parsers (manual, no external lib) ---
 
-    /**
-     * Parse "board" từ JSON body.
-     * Ví dụ: {"board":[0,0,0,0,0,0,0,0,0],"cell":5}
-     */
+    // parse "board" array from JSON body
     private int[] parseBoard(String body) {
         int start = body.indexOf("[");
         int end = body.indexOf("]");
@@ -121,32 +93,23 @@ public class GameHandler implements HttpHandler {
         return board;
     }
 
-    /**
-     * Parse "cell" từ JSON body.
-     * Ví dụ: {"board":[...],"cell":5}
-     */
+    // parse "cell" integer from JSON body
     private int parseCell(String body) {
         String key = "\"cell\"";
         int idx = body.indexOf(key);
         if (idx == -1) throw new IllegalArgumentException("No cell field");
 
-        // Tìm số sau dấu ':' kể từ vị trí key
         int colon = body.indexOf(":", idx + key.length());
         int numStart = colon + 1;
-
-        // Bỏ qua khoảng trắng
         while (numStart < body.length() && body.charAt(numStart) == ' ') numStart++;
 
-        // Đọc đến ký tự không phải số
         int numEnd = numStart;
         while (numEnd < body.length() && Character.isDigit(body.charAt(numEnd))) numEnd++;
 
         return Integer.parseInt(body.substring(numStart, numEnd));
     }
 
-    // -------------------------------------------------------
-    // Game state check
-    // -------------------------------------------------------
+    // --- game state check ---
 
     private static final int[][] WIN_LINES = {
         {0,1,2},{3,4,5},{6,7,8},   // rows
@@ -154,19 +117,17 @@ public class GameHandler implements HttpHandler {
         {0,4,8},{2,4,6}            // diagonals
     };
 
-    /** Kiểm tra board hiện tại đã kết thúc chưa (ai đó thắng hoặc full). */
+    // true if someone has won or the board is full
     private boolean isGameOver(int[] board) {
         for (int[] line : WIN_LINES) {
             int v = board[line[0]];
             if (v != 0 && v == board[line[1]] && v == board[line[2]]) return true;
         }
         for (int cell : board) { if (cell == 0) return false; }
-        return true; // full → draw
+        return true;
     }
 
-    // -------------------------------------------------------
-    // JSON Builder
-    // -------------------------------------------------------
+    // --- response builders ---
 
     private String buildResponse(int[] board, String status, String message) {
         String boardArr = Arrays.stream(board)
@@ -177,10 +138,6 @@ public class GameHandler implements HttpHandler {
             boardArr, status, message
         );
     }
-
-    // -------------------------------------------------------
-    // HTTP Helpers
-    // -------------------------------------------------------
 
     private void addCorsHeaders(HttpExchange exchange) {
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
