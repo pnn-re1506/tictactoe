@@ -32,7 +32,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>vgu.pe2026.ttt.basis.Main</mainClass>
+                            <mainClass>vgu.pe2026.ttt.basis.Client</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

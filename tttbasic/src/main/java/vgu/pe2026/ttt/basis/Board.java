@@ -1,7 +1,10 @@
 package vgu.pe2026.ttt.basis;
 
 public class Board {
-    
+
+    public static final int EMPTY = 0;
+    public static final int HUMAN = 1;
+    public static final int COMPUTER = 2;
 
     private int[] cells = new int[9];
     private int[][] winLines = {
@@ -16,6 +19,10 @@ public class Board {
 
     public boolean isEmpty(int cell) {
         return cells[cell - 1] == 0;
+    }
+
+    public boolean isValidMove(int cell) {
+        return cell >= 1 && cell <= 9 && isEmpty(cell);
     }
 
     public void place(int cell, int mark) {
@@ -44,6 +51,30 @@ public class Board {
                 return i + 1;
         }
         return -1;
+    }
+
+    public String toLine() {
+        StringBuilder builder = new StringBuilder(9);
+        for (int cell : cells) {
+            builder.append(cell);
+        }
+        return builder.toString();
+    }
+
+    public static Board fromLine(String line) {
+        if (line == null || line.length() != 9) {
+            throw new IllegalArgumentException("Board must contain exactly 9 cells.");
+        }
+
+        Board board = new Board();
+        for (int i = 0; i < 9; i++) {
+            char value = line.charAt(i);
+            if (value < '0' || value > '2') {
+                throw new IllegalArgumentException("Board cells must be 0, 1, or 2.");
+            }
+            board.cells[i] = value - '0';
+        }
+        return board;
     }
 
     public void printMatrix() {

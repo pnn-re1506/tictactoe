@@ -1,28 +1,22 @@
 package vgu.pe2026.ttt.basis;
 
-import vgu.pe2026.ttt.basis.Board;
-import vgu.pe2026.ttt.basis.Player;
-
 import java.util.Scanner;
 
-public class HumanPlayer extends Player {
+public class HumanPlayer {
 
     private Scanner scanner;
 
     public HumanPlayer(Scanner scanner) {
-        super(1, "Human");
         this.scanner = scanner;
     }
 
-    @Override
     public int chooseCell(Board board) {
         while (true) {
-            System.out.print("Your move (1-9): ");
+            System.out.print("Your move (1-9, q to quit): ");
             String input = scanner.nextLine().trim();
 
-            if (input.equals("q")) {
-                System.out.println("End of the game");
-                System.exit(0);
+            if (input.equalsIgnoreCase("q")) {
+                return -1;
             }
 
             int cell;
