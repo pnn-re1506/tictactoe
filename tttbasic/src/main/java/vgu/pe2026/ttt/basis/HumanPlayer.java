@@ -20,6 +20,11 @@ public class HumanPlayer extends Player {
             System.out.print("Your move (1-9): ");
             String input = scanner.nextLine().trim();
 
+            if (input.equals("q")) {
+                System.out.println("End of the game");
+                System.exit(0);
+            }
+
             int cell;
             try {
                 cell = Integer.parseInt(input);
