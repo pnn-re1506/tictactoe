@@ -39,7 +39,8 @@
 <button onclick="startGame()">New Game</button>
 
 <script>
-  const API = 'http://localhost:8080/api/move';
+  // Path tương đối: tự động resolve theo context path Tomcat (ví dụ /tttbasic/api/move)
+  const API = 'api/move';
 
   let board = null;
   let gameOver = true;
@@ -72,7 +73,8 @@
   }
 
   async function makeMove(cell) {
-    if (gameOver || !board) return;
+    if (!board) return;
+    if (gameOver) { showError('Press "New Game" to start again.'); return; }
     if (board[cell - 1] !== 0) { showError('Cell already occupied!'); return; }
 
     let res;
