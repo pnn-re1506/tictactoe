@@ -13,7 +13,6 @@ public class Server {
 
     public static void main(String[] args) {
         ComputerPlayer computer = new ComputerPlayer();
-        boolean busy = false;
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             System.out.println("Server listening on port " + PORT);
@@ -29,33 +28,12 @@ public class Server {
                         continue;
                     }
 
-                    if (request.equals("START")) {
-                        if (busy) {
-                            output.println("WAIT");
-                        } else {
-                            busy = true;
-                            output.println("OK");
-                        }
-                        continue;
-                    }
 
-                    if (request.equals("QUIT")) {
-                        busy = false;
-                        output.println("OK");
-                        continue;
-                    }
-
-                    if (!busy) {
-                        output.println("ERROR Game not started");
-                        continue;
-                    }
 
                     String response = handleMove(request, computer);
                     output.println(response);
 
-                    if (isGameOver(response)) {
-                        busy = false;
-                    }
+
                 } catch (IOException e) {
                     System.out.println("Connection error: " + e.getMessage());
                 }
@@ -107,9 +85,4 @@ public class Server {
         return "RESULT ongoing " + board.toLine();
     }
 
-    private static boolean isGameOver(String response) {
-        return response.startsWith("RESULT win ")
-                || response.startsWith("RESULT lose ")
-                || response.startsWith("RESULT draw ");
-    }
 }

@@ -17,7 +17,6 @@ public class Client {
 
         try (Scanner scanner = new Scanner(System.in)) {
             HumanPlayer human = new HumanPlayer(scanner);
-            waitForGameSlot();
 
             System.out.println("\n=== Tic-Tac-Toe ===");
             System.out.println("You are 1. Computer is 2.");
@@ -26,7 +25,6 @@ public class Client {
                 board.printMatrix();
                 int humanMove = human.chooseCell(board);
                 if (humanMove == -1) {
-                    send("QUIT");
                     System.out.println("End of the game");
                     return;
                 }
@@ -36,7 +34,6 @@ public class Client {
 
                 if (parts.length != 3 || !parts[0].equals("RESULT")) {
                     System.out.println("Invalid server response: " + response);
-                    send("QUIT");
                     return;
                 }
 
@@ -58,26 +55,6 @@ public class Client {
             }
         } catch (IOException e) {
             System.out.println("Cannot connect to server: " + e.getMessage());
-        }
-    }
-
-    private static void waitForGameSlot() throws IOException {
-        while (true) {
-            String startResponse = send("START");
-            if (startResponse.equals("OK")) {
-                return;
-            }
-            if (!startResponse.equals("WAIT")) {
-                throw new IOException("Cannot start game: " + startResponse);
-            }
-
-            System.out.println("Server is busy. Waiting...");
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Interrupted while waiting for server.", e);
-            }
         }
     }
 
