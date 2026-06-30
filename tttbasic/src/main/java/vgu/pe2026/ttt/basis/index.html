@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TicTacToe</title>
+  <style>
+    body { text-align: center; }
+    #board { margin: 20px auto; }
+    #board td { width: 100px; height: 100px; font-size: 2rem; cursor: pointer; text-align: center; vertical-align: middle; }
+  </style>
+</head>
+<body>
+
+<h1>Tic-Tac-Toe</h1>
+<p>You = X &nbsp;|&nbsp; Computer = O</p>
+
+<p id="status">Press "New Game" to start.</p>
+<p id="error" style="display:none"></p>
+
+<table border="1" cellpadding="10" cellspacing="0" id="board">
+  <tr>
+    <td id="c1" onclick="makeMove(1)"></td>
+    <td id="c2" onclick="makeMove(2)"></td>
+    <td id="c3" onclick="makeMove(3)"></td>
+  </tr>
+  <tr>
+    <td id="c4" onclick="makeMove(4)"></td>
+    <td id="c5" onclick="makeMove(5)"></td>
+    <td id="c6" onclick="makeMove(6)"></td>
+  </tr>
+  <tr>
+    <td id="c7" onclick="makeMove(7)"></td>
+    <td id="c8" onclick="makeMove(8)"></td>
+    <td id="c9" onclick="makeMove(9)"></td>
+  </tr>
+</table>
+
+<br>
+<button onclick="startGame()">New Game</button>
+
+<script>
+  let currentBoard = "000000000";
+  let gameOver = false;
+
+  function updateUI(board) {
+    for (let i = 0; i < 9; i++) {
+      let cell = document.getElementById("c" + (i + 1));
+      let val = board.charAt(i);
+      if (val === '0') cell.innerText = "";
+      else if (val === '1') cell.innerText = "X";
+      else if (val === '2') cell.innerText = "O";
+    }
+  }
+
+  function startGame() {
+    currentBoard = "000000000";
+    gameOver = false;
+    updateUI(currentBoard);
+    document.getElementById("status").innerText = "Your turn!";
+    document.getElementById("error").style.display = "none";
+  }
+
+  function makeMove(cellIndex) {
+    if (gameOver) {
+      document.getElementById("status").innerText = "Press New Game to play again.";
+      return;
+    }
+    if (currentBoard.charAt(cellIndex - 1) !== '0') {
+      document.getElementById("status").innerText = "Cell already occupied! Choose another one.";
+      return;
+    }
+
+    document.getElementById("status").innerText = "Thinking...";
+
+    fetch("http://localhost:9090/move", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        board: currentBoard,
+        move: cellIndex
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      currentBoard = data.board;
+      updateUI(currentBoard);
+
+      let statusElem = document.getElementById("status");
+      if (data.status === "win") {
+        statusElem.innerText = "You Win!";
+        gameOver = true;
+      } else if (data.status === "lose") {
+        statusElem.innerText = "Computer Wins!";
+        gameOver = true;
+      } else if (data.status === "draw") {
+        statusElem.innerText = "It's a Draw!";
+        gameOver = true;
+      } else if (data.status === "ongoing") {
+        statusElem.innerText = "Your turn!";
+      } else if (data.status === "invalid") {
+        statusElem.innerText = "Invalid move, try again.";
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      let errorElem = document.getElementById("error");
+      errorElem.style.display = "block";
+      errorElem.innerText = "Error communicating with server.";
+      document.getElementById("status").innerText = "Error!";
+    });
+  }
+
+  startGame();
+</script>
+</body>
+</html>
