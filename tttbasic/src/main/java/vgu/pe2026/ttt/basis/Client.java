@@ -70,9 +70,9 @@ public class Client {
 
     private static void printResult(String status) {
         if (status.equals("win")) {
-            System.out.println("You win!");
+            System.out.println("Player#1 won!");
         } else if (status.equals("lose")) {
-            System.out.println("Computer wins!");
+            System.out.println("Player#2 won!");
         } else if (status.equals("draw")) {
             System.out.println("It's a draw!");
         } else {

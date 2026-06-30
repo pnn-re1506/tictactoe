@@ -12,6 +12,7 @@ public class HumanPlayer {
 
     public int chooseCell(Board board) {
         while (true) {
+            System.out.println("Player#1 turn");
             System.out.print("Your move (1-9, q to quit): ");
             String input = scanner.nextLine().trim();
 
