@@ -34,7 +34,7 @@ public class Client {
                 String response = send("MOVE " + board.toLine() + " " + humanMove);
                 String[] parts = response.split(" ");
 
-                if (parts.length != 4 || !parts[0].equals("RESULT")) {
+                if (parts.length != 3 || !parts[0].equals("RESULT")) {
                     System.out.println("Invalid server response: " + response);
                     send("QUIT");
                     return;
@@ -47,10 +47,6 @@ public class Client {
                 }
 
                 board = Board.fromLine(parts[2]);
-                int computerMove = Integer.parseInt(parts[3]);
-                if (computerMove > 0) {
-                    System.out.println("Computer chose cell " + computerMove + ".");
-                }
 
                 if (status.equals("ongoing")) {
                     continue;

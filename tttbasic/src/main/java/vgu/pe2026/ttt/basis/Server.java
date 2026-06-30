@@ -68,7 +68,7 @@ public class Server {
     private static String handleMove(String request, ComputerPlayer computer) {
         String[] parts = request.split(" ");
         if (parts.length != 3 || !parts[0].equals("MOVE")) {
-            return "RESULT invalid 000000000 0";
+            return "RESULT invalid 000000000";
         }
 
         Board board;
@@ -77,19 +77,19 @@ public class Server {
             board = Board.fromLine(parts[1]);
             humanMove = Integer.parseInt(parts[2]);
         } catch (IllegalArgumentException e) {
-            return "RESULT invalid 000000000 0";
+            return "RESULT invalid 000000000";
         }
 
         if (!board.isValidMove(humanMove)) {
-            return "RESULT invalid " + board.toLine() + " 0";
+            return "RESULT invalid " + board.toLine();
         }
 
         board.place(humanMove, Board.HUMAN);
         if (board.hasWon(Board.HUMAN)) {
-            return "RESULT win " + board.toLine() + " 0";
+            return "RESULT win " + board.toLine();
         }
         if (board.isFull()) {
-            return "RESULT draw " + board.toLine() + " 0";
+            return "RESULT draw " + board.toLine();
         }
 
         int computerMove = computer.chooseCell(board);
@@ -98,13 +98,13 @@ public class Server {
         }
 
         if (board.hasWon(Board.COMPUTER)) {
-            return "RESULT lose " + board.toLine() + " " + computerMove;
+            return "RESULT lose " + board.toLine();
         }
         if (board.isFull()) {
-            return "RESULT draw " + board.toLine() + " " + computerMove;
+            return "RESULT draw " + board.toLine();
         }
 
-        return "RESULT ongoing " + board.toLine() + " " + computerMove;
+        return "RESULT ongoing " + board.toLine();
     }
 
     private static boolean isGameOver(String response) {
