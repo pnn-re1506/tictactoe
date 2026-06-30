@@ -1,16 +1,19 @@
 package vgu.pe2026.ttt.basis;
 
-import java.io.BufferedReader;
+import com.google.gson.Gson;
+
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Scanner;
 
 public class Client {
 
-    private static final String HOST = "localhost";
-    private static final int PORT = 12345;
+    private static final String SERVER_URL = "http://localhost:9090/move";
+    private static final Gson GSON = new Gson();
+    private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
 
     public static void main(String[] args) {
         Board board = new Board();
@@ -29,43 +32,47 @@ public class Client {
                     return;
                 }
 
-                String response = send("MOVE " + board.toLine() + " " + humanMove);
-                String[] parts = response.split(" ");
+                MoveResponse resp = send(board.toLine(), humanMove);
 
-                if (parts.length != 3 || !parts[0].equals("RESULT")) {
-                    System.out.println("Invalid server response: " + response);
-                    return;
-                }
-
-                String status = parts[1];
-                if (status.equals("invalid")) {
+                if (resp.status.equals("invalid")) {
                     System.out.println("Invalid move. Please try again.");
                     continue;
                 }
 
-                board = Board.fromLine(parts[2]);
+                board = Board.fromLine(resp.board);
 
-                if (status.equals("ongoing")) {
+                if (resp.status.equals("ongoing")) {
                     continue;
                 }
 
                 board.printMatrix();
-                printResult(status);
+                printResult(resp.status);
                 return;
             }
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             System.out.println("Cannot connect to server: " + e.getMessage());
         }
     }
 
-    private static String send(String request) throws IOException {
-        try (Socket socket = new Socket(HOST, PORT);
-                BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter output = new PrintWriter(socket.getOutputStream(), true)) {
+    private static MoveResponse send(String boardLine, int move)
+            throws IOException, InterruptedException {
 
-            output.println(request);
-            return input.readLine();
+        String requestBody = GSON.toJson(new MoveRequest(boardLine, move));
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(SERVER_URL))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
+
+        HttpResponse<String> response = HTTP_CLIENT.send(
+                request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            throw new IOException("Server error: HTTP " + response.statusCode());
         }
+
+        return GSON.fromJson(response.body(), MoveResponse.class);
     }
 
     private static void printResult(String status) {
