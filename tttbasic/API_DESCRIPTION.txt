@@ -1,6 +1,5 @@
 PATH     | METHOD  | PURPOSE
 ---------|---------|------------------------------------------
-/move    | OPTIONS | CORS preflight – returns 204 No Content
 /move    | POST    | Submit human move, get computer reply
 
 
