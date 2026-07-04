@@ -17,11 +17,15 @@ public class MoveServlet extends HttpServlet {
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.addHeader("Access-Control-Allow-Origin", "*");
+        resp.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        resp.addHeader("Access-Control-Allow-Headers", "Content-Type");
         resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.addHeader("Access-Control-Allow-Origin", "*");
         resp.setContentType("application/json; charset=UTF-8");
 
         String body = new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
