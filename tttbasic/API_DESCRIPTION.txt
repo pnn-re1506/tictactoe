@@ -1,9 +1,11 @@
 PATH     | METHOD  | PURPOSE
 ---------|---------|------------------------------------------
+/move    | OPTIONS | CORS preflight – returns 204 No Content
 /move    | POST    | Submit human move, get computer reply
 
 
 POST /move
+Full URL: http://localhost:<PORT>/tttbasic/move (default Tomcat port is 8080, change <PORT> if your Tomcat configuration is different)
 
 Request body (application/json):
   {
