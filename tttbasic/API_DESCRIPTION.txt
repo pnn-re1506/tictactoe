@@ -1,0 +1,28 @@
+PATH     | METHOD  | PURPOSE
+---------|---------|------------------------------------------
+/move    | OPTIONS | CORS preflight – returns 204 No Content
+/move    | POST    | Submit human move, get computer reply
+
+
+POST /move
+
+Request body (application/json):
+  {
+    "board" : "9-char string",   // '0'=empty, '1'=human, '2'=computer, eg: 000010000
+    "move"  : int 1-9            // cell index, left-to-right top-to-bottom
+  }
+
+Response body (application/json):
+  {
+    "status" : "<string>",   // "ongoing" | "win" | "lose" | "draw" | "invalid"
+    "board"  : "9-char string"   // updated board after both moves applied
+  }
+
+Status values:
+  ongoing  – game continues
+  win      – human won
+  lose     – computer won
+  draw     – board full, no winner
+  invalid  – bad move or malformed board
+
+
