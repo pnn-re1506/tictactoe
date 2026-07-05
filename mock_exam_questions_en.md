@@ -287,3 +287,4 @@
 - `fromLine()`/`toLine()`: map `'0'→EMPTY`, `'1'→HUMAN`, `'2'→COMPUTER`.
 - `ComputerPlayer`/Server: replace `Board.HUMAN` → `Mark.HUMAN`.
 - Benefits: type-safe, avoids magic numbers, clearer code.
+.
