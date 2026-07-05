@@ -22,6 +22,16 @@ public class Client {
             System.out.println("\n=== Tic-Tac-Toe ===");
             System.out.println("You are 1. Computer is 2.");
 
+            // Request initial state and token
+            String startResponse = send("START");
+            String[] startParts = startResponse.split(" ");
+            if (startParts.length != 4 || !startParts[0].equals("RESULT") || !startParts[1].equals("start")) {
+                System.out.println("Failed to start game: " + startResponse);
+                return;
+            }
+            board = Board.fromLine(startParts[2]);
+            String currentSignature = startParts[3];
+
             // Main game loop - represents turns
             while (true) {
                 board.printMatrix();
@@ -35,24 +45,30 @@ public class Client {
                 }
 
                 // 2. Send move to server over a stateless connection
-                String response = send("MOVE " + board.toLine() + " " + humanMove);
+                String response = send("MOVE " + board.toLine() + " " + humanMove + " " + currentSignature);
                 
-                // 3. Parse server response ("RESULT <status> <new_board>")
+                // 3. Parse server response ("RESULT <status> <new_board> <new_signature>")
                 String[] parts = response.split(" ");
 
-                if (parts.length != 3 || !parts[0].equals("RESULT")) {
+                if (parts.length != 4 || !parts[0].equals("RESULT")) {
                     System.out.println("Invalid server response: " + response);
                     return; // Exit game on bad server response
                 }
 
                 String status = parts[1];
+                if (status.equals("error")) {
+                    System.out.println("Security Error: " + response);
+                    return;
+                }
                 if (status.equals("invalid")) {
                     System.out.println("Invalid move. Please try again.");
+                    currentSignature = parts[3];
                     continue; // Skip the rest of the loop and prompt human again
                 }
 
                 // 4. Update local board with the state provided by the server
                 board = Board.fromLine(parts[2]);
+                currentSignature = parts[3];
 
                 if (status.equals("ongoing")) {
                     continue; // Game is not over, loop back to human's turn

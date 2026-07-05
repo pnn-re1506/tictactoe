@@ -6,10 +6,26 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Base64;
 
 public class Server {
 
     private static final int PORT = 12345;
+    private static final String SECRET_KEY = "Vgu_Tictactoe_Secret";
+
+    private static String generateHMAC(String data) {
+        try {
+            Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secret_key = new SecretKeySpec(SECRET_KEY.getBytes("UTF-8"), "HmacSHA256");
+            sha256_HMAC.init(secret_key);
+            byte[] hash = sha256_HMAC.doFinal(data.getBytes("UTF-8"));
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate HMAC", e);
+        }
+    }
 
     public static void main(String[] args) {
         ComputerPlayer computer = new ComputerPlayer();
@@ -57,33 +73,46 @@ public class Server {
 
     // Core game logic processor
     private static String handleMove(String request, ComputerPlayer computer) {
-        // Parse request: e.g., "MOVE 100000000 5"
+        if (request.equals("START")) {
+            String initialBoard = "000000000";
+            return "RESULT start " + initialBoard + " " + generateHMAC(initialBoard);
+        }
+
+        // Parse request: e.g., "MOVE 100000000 5 signature"
         String[] parts = request.split(" ");
-        if (parts.length != 3 || !parts[0].equals("MOVE")) {
-            return "RESULT invalid 000000000";
+        if (parts.length != 4 || !parts[0].equals("MOVE")) {
+            return "RESULT invalid 000000000 " + generateHMAC("000000000");
+        }
+
+        String boardLine = parts[1];
+        int humanMove;
+        String clientSignature = parts[3];
+
+        // Validate HMAC signature
+        if (!generateHMAC(boardLine).equals(clientSignature)) {
+            return "RESULT error 000000000 Invalid_Signature";
         }
 
         Board board;
-        int humanMove;
         try {
-            board = Board.fromLine(parts[1]); // Reconstruct board state
+            board = Board.fromLine(boardLine); // Reconstruct board state
             humanMove = Integer.parseInt(parts[2]); // Parse requested move
         } catch (IllegalArgumentException e) {
-            return "RESULT invalid 000000000";
+            return "RESULT invalid " + boardLine + " " + generateHMAC(boardLine);
         }
 
         // Validate human move against the reconstructed board
         if (!board.isValidMove(humanMove)) {
-            return "RESULT invalid " + board.toLine();
+            return "RESULT invalid " + board.toLine() + " " + generateHMAC(board.toLine());
         }
 
         // Apply human move
         board.place(humanMove, Board.HUMAN);
         if (board.hasWon(Board.HUMAN)) {
-            return "RESULT win " + board.toLine();
+            return "RESULT win " + board.toLine() + " " + generateHMAC(board.toLine());
         }
         if (board.isFull()) {
-            return "RESULT draw " + board.toLine();
+            return "RESULT draw " + board.toLine() + " " + generateHMAC(board.toLine());
         }
 
         // AI turn
@@ -94,14 +123,14 @@ public class Server {
 
         // Check for AI win or draw
         if (board.hasWon(Board.COMPUTER)) {
-            return "RESULT lose " + board.toLine();
+            return "RESULT lose " + board.toLine() + " " + generateHMAC(board.toLine());
         }
         if (board.isFull()) {
-            return "RESULT draw " + board.toLine();
+            return "RESULT draw " + board.toLine() + " " + generateHMAC(board.toLine());
         }
 
         // Game continues
-        return "RESULT ongoing " + board.toLine();
+        return "RESULT ongoing " + board.toLine() + " " + generateHMAC(board.toLine());
     }
 
 }
