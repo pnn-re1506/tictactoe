@@ -41,7 +41,10 @@ public class Server {
                     
                     // Send response back to client
                     output.println(response);
-
+                    // The socket is automatically closed when exiting this block
+                    // output.close()
+                    // input.close()
+                    // socket.close()
 
                 } catch (IOException e) {
                     System.out.println("Connection error: " + e.getMessage());
